@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Rentabilidade</title>
+<style>
+  :root{
+    --bg:#eef1f6;
+    --panel:#ffffff;
+    --panel2:#f5f7fa;
+    --line:#e7eaf0;
+    --line2:#d5dae3;
+    --text:#141821;
+    --muted:#6b7280;
+    --muted2:#a3aab6;
+    --white:#0f1420;
+    --accent:#3d7dff;
+    --accent-soft:#eaf1ff;
+    --green:#15a34a;
+    --red:#e5484d;
+    --shadow:0 1px 2px rgba(20,24,33,.04), 0 8px 24px rgba(20,24,33,.06);
+    --shadow-hi:0 4px 12px rgba(61,125,255,.18), 0 12px 32px rgba(20,24,33,.10);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #ffffff 0%, rgba(255,255,255,0) 60%),
+      radial-gradient(1000px 500px at 110% 0%, #e6edff 0%, rgba(230,237,255,0) 55%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:24px 16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:100%;margin:0 auto}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes pop{0%{transform:scale(.9);opacity:.4}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  header{margin-bottom:22px}
+  header h1{margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:-.4px;animation:fadeUp .5s ease both}
+  header p{margin:0;color:var(--muted);font-size:13px;animation:fadeUp .5s .05s ease both}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+    animation:fadeUp .55s ease both;
+  }
+  .panel:nth-of-type(1){animation-delay:.08s}
+  .panel:nth-of-type(2){animation-delay:.16s}
+  .section-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.4px;margin:0 0 16px;font-weight:700}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+  .fld{flex:0 1 200px;min-width:150px}
+  .fld.btns{flex:0 0 auto}
+  .fld.btns label{visibility:hidden}
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+  .field{position:relative}
+  .field .prefix{position:absolute;top:14px;left:12px;color:var(--muted2);font-size:14px;pointer-events:none}
+  input[type=number],input.money{
+    width:100%;
+    background:var(--panel2);
+    border:1px solid var(--line2);
+    border-radius:10px;
+    color:var(--text);
+    font-size:15px;
+    padding:11px 12px 11px 34px;
+    outline:none;
+    transition:border-color .18s, box-shadow .18s, background .18s;
+  }
+  input.plain{padding-left:12px}
+  input.money{padding-right:38px}
+  #ciclos{padding-right:38px}
+  input[type=number]:focus,input.money:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield;appearance:textfield}
+
+  /* stepper de setas (passo de 10 mil) */
+  .stepper{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px}
+  .stepper button{background:var(--panel2);border:1px solid var(--line2);color:var(--muted);width:24px;height:16px;font-size:9px;line-height:1;padding:0;border-radius:5px}
+  .stepper button:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);transform:none;box-shadow:none}
+
+  /* barra deslizante para aumentar/diminuir */
+  .slider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;background:var(--line2);outline:none;margin-top:12px;cursor:pointer}
+  .slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(61,125,255,.5);cursor:pointer}
+  .slider::-moz-range-thumb{width:18px;height:18px;border:2px solid #fff;border-radius:50%;background:var(--accent);cursor:pointer}
+  .slider-cap,.years-cap{font-size:11px;color:var(--muted);margin-top:8px}
+  .years-cap b{color:var(--text)}
+
+  button{
+    background:var(--white);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:12px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:transform .15s ease, box-shadow .18s ease, background .18s;
+  }
+  button:hover{transform:translateY(-2px);box-shadow:var(--shadow-hi);background:#1c2536}
+  button:active{transform:translateY(0)}
+  button#calc{background:var(--accent)}
+  button#calc:hover{background:#2f6ae0}
+  button.mini{background:var(--panel2);color:var(--accent);border:1px solid var(--line2);padding:4px 9px;font-size:11px;border-radius:7px;margin-left:6px}
+  button.mini:hover{background:var(--accent-soft);border-color:var(--accent);transform:none;box-shadow:none}
+  button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line2)}
+  button.ghost:hover{background:var(--line);transform:none;box-shadow:none}
+  button.danger{background:var(--red)}
+  button.danger:hover{background:#c93b40}
+
+  .hint{margin:0 0 14px;color:var(--muted);font-size:12px}
+  .hint b{color:var(--text)}
+
+  /* table */
+  .table-wrap{position:relative}
+  .table-scroll{overflow-x:auto;border-radius:12px;scrollbar-width:none}
+  .table-scroll::-webkit-scrollbar{height:0;display:none}
+  table{border-collapse:collapse;font-size:14px;width:max-content}
+
+  table.fits{table-layout:fixed;width:100%}
+  table.fits th.monthhead, table.fits td.blank, table.fits td.mark{width:auto;min-width:0;max-width:none}
+
+  /* trilha de ações FORA da tabela (uma lixeira por aporte) */
+  .grid-layout{display:flex;align-items:flex-start;gap:6px}
+  .grid-layout .table-wrap{flex:1;min-width:0}
+  .actions-rail{flex:0 0 auto;display:flex;flex-direction:column}
+  .rail-head{display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2)}
+  .rail-row{display:flex;align-items:center;justify-content:flex-end;gap:5px;
+    cursor:grab;border-radius:8px;transition:background .15s, box-shadow .15s}
+  .rail-row:active{cursor:grabbing}
+  .rail-row:hover{background:var(--accent-soft)}
+  .rail-row.rail-dragging{opacity:.4}
+  .rail-row.rail-over{box-shadow:inset 0 2px 0 var(--accent)}
+  .rail-grip{color:var(--muted2);font-size:11px;letter-spacing:-1px;line-height:1;cursor:grab}
+  .rail-num{font-size:13px;font-weight:800;color:var(--white);min-width:12px;text-align:right}
+  .trash{background:none;border:none;color:var(--muted2);cursor:pointer;padding:4px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;transition:color .15s, background .15s, transform .15s}
+  .trash:hover{color:var(--red);background:rgba(229,72,77,.1);transform:none;box-shadow:none}
+
+  .scroll-edge{
+    position:absolute;top:0;bottom:0;width:52px;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;font-weight:800;line-height:1;color:#fff;
+    opacity:0;pointer-events:none;transition:opacity .2s, color .15s;z-index:6;
+  }
+  .scroll-edge.left{left:0;border-radius:12px 0 0 12px;
+    background:linear-gradient(to right, #6b7280 55%, rgba(107,114,128,0))}
+  .scroll-edge.right{right:0;border-radius:0 12px 12px 0;
+    background:linear-gradient(to left, #6b7280 55%, rgba(107,114,128,0))}
+  .scroll-edge.on{opacity:1;pointer-events:auto}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+
+  thead .cyc-row th.cyc{
+    text-align:center;color:var(--white);font-size:12px;font-weight:700;
+    border-bottom:1px solid var(--line2);border-left:1px solid var(--line);
+    background:var(--panel2);
+  }
+  th.monthhead, td.blank, td.mark{
+    width:10px;min-width:10px;max-width:10px;
+    padding:3px 1px;text-align:center;
+  }
+  thead .yr-row th.monthhead{color:var(--muted2);font-size:9px;font-weight:600;letter-spacing:0;text-transform:none}
+  .cycle-start{box-shadow:inset 2px 0 0 var(--line2)}
+
+  /* janela dos últimos 36 meses (hover) — faixa vertical bem visível */
+  td.win, th.win{background:rgba(61,125,255,.26)}
+  thead th.monthhead.win{background:rgba(61,125,255,.34);color:var(--accent)}
+  td.blank.win{background:rgba(61,125,255,.22)}
+  td.mark.win i{filter:brightness(1.06)}
+
+  td.mark i{display:block;height:14px;border-radius:3px;animation:pop .35s ease both;transition:transform .12s, filter .12s}
+  td.mark.start i{background:var(--accent)}
+  td.mark.cycle i{background:var(--green)}
+  td.mark.adjplus i{background:#0ea5e9;box-shadow:0 0 0 2px rgba(14,165,233,.25)}
+  td.mark.adjminus i{background:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.25)}
+  td.mark.start{cursor:pointer;user-select:none}
+  td.mark.start:active{cursor:grabbing}
+  td.mark:hover i{transform:scale(1.12);filter:brightness(1.08)}
+  td.mark.start:hover i{box-shadow:0 0 0 3px var(--accent-soft), 0 2px 8px rgba(61,125,255,.4)}
+
+  .tip{
+    position:fixed;z-index:60;pointer-events:none;
+    left:0;top:0;opacity:0;transform:translateY(6px) scale(.96);
+    background:var(--white);color:#fff;border-radius:11px;
+    padding:10px 13px;box-shadow:var(--shadow-hi);
+    display:flex;flex-direction:column;gap:2px;white-space:nowrap;
+    transition:opacity .14s ease, transform .14s cubic-bezier(.34,1.56,.64,1);
+  }
+  .tip.show{opacity:1;transform:translateY(0) scale(1)}
+  .tip::before{content:'';position:absolute;left:16px;top:-5px;width:10px;height:10px;
+    background:inherit;transform:rotate(45deg);border-radius:2px}
+  .tip .tip-cap{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#79f2a8}
+  .tip .tip-v{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .tip .tip-sub{font-size:11px;font-weight:600;color:#9fc0ff}
+  .tip .tip-carry{font-size:11px;font-weight:700;color:#ffcf6b}
+  .tip .tip-hint,.tip .tip-hint-plain{font-size:10px;font-weight:600;color:rgba(255,255,255,.55);margin-top:3px}
+
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:var(--accent-soft)}
+  tr.dragging{opacity:.4}
+  td.blank{color:var(--muted2)}
+  td.drop-hover{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+
+  .del{background:none;color:var(--muted2);border:none;font-size:19px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s,transform .15s}
+  .del:hover{color:var(--red);transform:scale(1.15);box-shadow:none;background:none}
+
+  .empty td{color:var(--muted2);font-style:italic;text-align:center;padding:20px}
+
+  /* painel de totais */
+  .totais{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+  .totais .tot{
+    flex:1;min-width:240px;
+    display:flex;flex-direction:column;gap:6px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;animation:fadeUp .4s ease both;
+  }
+  .tot-top{font-size:16px;font-weight:800;letter-spacing:.2px;color:var(--accent);margin-bottom:2px}
+  .tot.renda .tot-top{color:var(--green)}
+  .tot-main{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+  .totais .totlbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  .totais .totyears{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent);font-size:10px;letter-spacing:.5px}
+  .totais .totval{font-size:22px;font-weight:800;color:var(--white)}
+  .totais .renda .totval{color:var(--green)}
+
+  .calc-cta{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px;
+    background:var(--panel2);border:1px dashed var(--line2);border-radius:12px}
+  .calc-cta .calc-sub{color:var(--muted);font-size:12px}
+  .calc-cta button{background:var(--accent);padding:14px 44px;font-size:15px}
+  .calc-cta button:hover{background:#2f6ae0}
+  .loading{flex:1;display:flex;align-items:center;justify-content:center;gap:12px;padding:26px;
+    color:var(--muted);font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+  .spinner{width:20px;height:20px;border:3px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+
+  /* modal de edição */
+  .overlay{position:fixed;inset:0;background:rgba(20,24,33,.45);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;z-index:80;padding:16px;animation:fadeIn .15s ease}
+  .overlay[hidden]{display:none}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-hi);
+    width:100%;max-width:460px;max-height:90vh;overflow:auto;animation:pop .25s ease both}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
+  .modal-head h3{margin:0;font-size:16px;font-weight:800}
+  .modal-x{background:none;color:var(--muted2);font-size:22px;padding:0 6px;line-height:1}
+  .modal-x:hover{color:var(--red);background:none;transform:none;box-shadow:none}
+  .modal-body{padding:4px 20px 8px;display:flex;flex-direction:column;gap:16px}
+  .mrow{display:flex;gap:12px}
+  .mrow .fld{flex:1;min-width:0}
+  .ciclo-desc{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  .ciclo-desc b{font-size:18px;color:var(--white);letter-spacing:-.2px;text-transform:none}
+  .modal-foot{display:flex;align-items:center;gap:10px;padding:14px 20px 20px}
+  .modal-foot .spacer{flex:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Calculadora de Rentabilidade</h1>
+  </header>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div class="fld">
+        <label for="valor">Valor do aporte</label>
+        <div class="field">
+          <span class="prefix">R$</span>
+          <input type="text" id="valor" class="money" inputmode="numeric" value="50.000,00">
+          <div class="stepper">
+            <button type="button" class="step" data-step="10000" aria-label="Aumentar 10 mil">▲</button>
+            <button type="button" class="step" data-step="-10000" aria-label="Diminuir 10 mil">▼</button>
+          </div>
+        </div>
+        <input type="range" id="valorRange" class="slider" min="0" max="1000000" step="10000" value="50000">
+      </div>
+
+      <div class="fld">
+        <label for="ciclos">Ciclos (3 anos cada)</label>
+        <div class="field">
+          <span class="prefix">#</span>
+          <input type="number" id="ciclos" value="3" min="1" step="1">
+          <div class="stepper">
+            <button type="button" class="cstep" data-step="1" aria-label="Aumentar ciclo">▲</button>
+            <button type="button" class="cstep" data-step="-1" aria-label="Diminuir ciclo">▼</button>
+          </div>
+        </div>
+        <div class="years-cap">Total de <b id="totalAnos">9</b> anos</div>
+      </div>
+
+      <div class="fld btns">
+        <label>.</label>
+        <button id="add">+ Adicionar aporte</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="grid-layout">
+      <div class="actions-rail" id="rail"></div>
+      <div class="table-wrap">
+        <button class="scroll-edge left" aria-label="Rolar para a esquerda">‹</button>
+        <button class="scroll-edge right" aria-label="Rolar para a direita">›</button>
+        <div class="table-scroll">
+          <table>
+            <thead id="head"></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="totais" id="totais"></div>
+  </div>
+</div>
+
+<!-- Modal de edição de aporte -->
+<div class="overlay" id="overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3><span id="mEditTitle">Editar aporte</span> <span id="mAporteNum"></span></h3>
+      <button class="modal-x" id="mClose" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="mAporteFields">
+        <div class="mrow">
+          <div class="fld">
+            <label for="mAno">Ano</label>
+            <input type="number" id="mAno" class="plain" min="1" step="1">
+          </div>
+          <div class="fld">
+            <label for="mMes">Mês</label>
+            <input type="number" id="mMes" class="plain" min="1" max="12" step="1">
+          </div>
+        </div>
+
+        <div class="fld">
+          <label for="mValor">Valor do aporte</label>
+          <div class="field">
+            <span class="prefix">R$</span>
+            <input type="text" id="mValor" class="money" inputmode="numeric">
+            <div class="stepper">
+              <button type="button" data-mstep="10000">▲</button>
+              <button type="button" data-mstep="-10000">▼</button>
+            </div>
+          </div>
+          <input type="range" id="mValorRange" class="slider" min="0" max="1000000" step="10000">
+        </div>
+      </div>
+
+      <div id="mCicloFields" style="display:none">
+        <div class="ciclo-desc">Valor do último ciclo <b id="mCicloNatural">R$ 0,00</b></div>
+        <div class="fld">
+          <label for="mCarry">Valor que fica na operação</label>
+          <div class="field">
+            <span class="prefix">R$</span>
+            <input type="text" id="mCarry" class="money" inputmode="numeric">
+            <div class="stepper">
+              <button type="button" data-cstep="10000">▲</button>
+              <button type="button" data-cstep="-10000">▼</button>
+            </div>
+          </div>
+          <input type="range" id="mCarryRange" class="slider" min="0" max="1000000" step="10000">
+          <div class="slider-cap">O <b>próximo ciclo</b> passa a render a partir deste valor.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="danger" id="mRemove">Remover aporte</button>
+      <div class="spacer"></div>
+      <button class="ghost" id="mCancel">Cancelar</button>
+      <button id="mSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CYCLE_MONTHS = 36;                  // 1 ciclo = 36 meses
+const BASE_YEAR = 2026;                   // ano 1 = 2026
+const brl = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL', minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtMoney = v => Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtSigned = v => !v ? '0,00' : (v>0?'+':'−') + fmtMoney(Math.abs(v));
+const pct = t => t.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + '% a.m.';
+
+// interpreta texto pt-BR (com ponto de milhar e vírgula decimal) -> número
+function parseNum(str){
+  if(typeof str === 'number') return str;
+  let s = String(str).trim();
+  const neg = /[-−]/.test(s);
+  s = s.replace(/\./g,'').replace(',', '.').replace(/[^0-9.]/g,'');
+  const n = parseFloat(s) || 0;
+  return neg ? -n : n;
+}
+
+// máscara pt-BR ao vivo: formata milhar com ponto e decimal com vírgula
+// enquanto o usuário digita, preservando a posição do cursor.
+function maskMoney(input, onValue){
+  const raw = input.value;
+  // conta os dígitos à esquerda do cursor (para reposicioná-lo depois)
+  const caret = input.selectionStart;
+  let digitsLeft = 0;
+  for(let i=0;i<caret;i++) if(/\d/.test(raw[i])) digitsLeft++;
+
+  let s = raw.replace(/[^\d,]/g,'');            // só dígitos e vírgula
+  const ci = s.indexOf(',');
+  if(ci !== -1) s = s.slice(0,ci+1) + s.slice(ci+1).replace(/,/g,'');   // uma vírgula só
+
+  if(s === '' || s === ','){ input.value = ''; if(onValue) onValue(0); return; }
+
+  let [intp, decp] = s.split(',');
+  intp = (intp || '').replace(/^0+(?=\d)/,'');  // remove zeros à esquerda
+  const intFmt = Number(intp || '0').toLocaleString('pt-BR');
+  let out = intFmt;
+  if(decp !== undefined) out += ',' + decp.slice(0,2);
+
+  input.value = out;
+  // reposiciona o cursor após a mesma quantidade de dígitos
+  let pos = 0, seen = 0;
+  while(pos < out.length && seen < digitsLeft){ if(/\d/.test(out[pos])) seen++; pos++; }
+  input.setSelectionRange(pos, pos);
+
+  if(onValue) onValue(parseNum(out));
+}
+
+// Faixa de taxa (% ao mês) conforme o PATRIMÔNIO TOTAL acumulado
+function taxaPara(patrimonio){
+  if(patrimonio < 100000) return 2.3;
+  if(patrimonio < 200000) return 2.6;
+  if(patrimonio < 400000) return 2.8;
+  return 3.0;
+}
+// Renda mensal (% ao mês) — mesmas faixas, taxas menores
+function rendaTaxaPara(patrimonio){
+  if(patrimonio < 100000) return 1.8;
+  if(patrimonio < 200000) return 2.1;
+  if(patrimonio < 400000) return 2.3;
+  return 2.5;
+}
+
+// Cada aporte: { valor, startMonth, carry:{ [k]: valor } }.
+// carry[k] = valor que FICA na operação no fim do ciclo k (o próximo ciclo rende
+// a partir dele). Sem definição, continua o montante cheio ("valor do último ciclo").
+let aportes = [];
+let aporteSeq = 0;                        // numeração estável (não muda ao reordenar)
+let lastSim = null;                       // último resultado da simulação
+let horizonte = 9;                        // ano-alvo (em anos)
+let editing = null;                       // estado do modal
+let resultsReady = false;                 // totais só aparecem após "Calcular"
+let loading = false;
+const $ = id => document.getElementById(id);
+
+const horizonMonth = () => horizonte * 12;
+function ciclosDe(a){ return Math.max(0, Math.floor((horizonMonth() - a.startMonth)/CYCLE_MONTHS)); }
+const ymOf = M => ({ ano: Math.floor((M-1)/12)+1, mes: ((M-1)%12)+1 });
+const startOf = (ano, mes) => (ano-1)*12 + mes;
+
+// ---------------------------------------------------------------------------
+// SIMULAÇÃO mês a mês. Juros compostos por ciclo; juros simples dentro do ciclo.
+// No fim de cada ciclo o montante cheio ("valor do último ciclo") é calculado.
+// O que CONTINUA para o próximo ciclo é o carry[k] (quando definido); caso
+// contrário, continua o montante cheio. Logo, o próximo ciclo rende sobre o
+// valor que fica na operação.
+// ---------------------------------------------------------------------------
+function simulate(){
+  const n = aportes.length;
+  if(!n) return {maxMonth:0, disp:[], rateStart:[], natural:[], carried:[], finalVal:[], total:0, investido:0};
+
+  const cyc = aportes.map(ciclosDe);
+  const maxYear = Math.max(3, horizonte);
+  const maxMonth = maxYear * 12;
+
+  const base = new Array(n).fill(0);
+  const rate = new Array(n).fill(0);
+  const disp = Array.from({length:n}, ()=> ({}));
+  const rateStart = Array.from({length:n}, ()=> ({}));
+  const natural = Array.from({length:n}, ()=> ({}));   // montante cheio no fim do ciclo
+  const carried = Array.from({length:n}, ()=> ({}));   // valor que ficou na operação
+  const finalVal = new Array(n).fill(0);
+
+  const cur = (i,M)=>{
+    const e = M - aportes[i].startMonth;
+    if(e < 0 || e > cyc[i]*CYCLE_MONTHS) return 0;
+    const m = e % CYCLE_MONTHS;
+    return base[i] * (1 + m*rate[i]/100);
+  };
+
+  for(let M=1; M<=maxMonth; M++){
+    // Fase A: fecha ciclos que terminam em M (compõe o montante cheio e aplica o carry)
+    for(let i=0;i<n;i++){
+      const e = M - aportes[i].startMonth;
+      if(e>0 && e<=cyc[i]*CYCLE_MONTHS && e%CYCLE_MONTHS===0){
+        const cheio = base[i] * (1 + CYCLE_MONTHS*rate[i]/100);
+        const k = e/CYCLE_MONTHS;
+        const c = (aportes[i].carry && aportes[i].carry[k] != null)
+                  ? Math.max(0, aportes[i].carry[k]) : cheio;
+        natural[i][M] = cheio;
+        carried[i][M] = c;
+        base[i] = c;                                   // o próximo ciclo rende sobre o carry
+      }
+    }
+    // depósito inicial
+    for(let i=0;i<n;i++) if(M===aportes[i].startMonth) base[i] = aportes[i].valor;
+
+    // Fase B: patrimônio total do mês (define a faixa dos ciclos que começam agora)
+    let total = 0;
+    for(let i=0;i<n;i++) total += cur(i,M);
+
+    // Fase C: registra valores e trava a taxa dos ciclos iniciando em M
+    for(let i=0;i<n;i++){
+      const e = M - aportes[i].startMonth;
+      if(e < 0 || e > cyc[i]*CYCLE_MONTHS) continue;
+      if(e % CYCLE_MONTHS === 0){
+        disp[i][M] = cur(i,M);
+        if(e < cyc[i]*CYCLE_MONTHS){
+          rate[i] = taxaPara(total);
+          rateStart[i][M] = rate[i];
+        }
+        if(e === cyc[i]*CYCLE_MONTHS) finalVal[i] = cur(i,M);
+      }
+    }
+  }
+
+  const total = finalVal.reduce((s,v)=>s+v, 0);
+  // capital efetivamente aportado (só os valores iniciais dos aportes)
+  const investido = aportes.reduce((s,a)=> s + a.valor, 0);
+  return {maxMonth, disp, rateStart, natural, carried, finalVal, total, investido};
+}
+
+// novo aporte entra no mês 1 do próximo ano em relação ao último aporte
+function nextStartMonth(){
+  if(!aportes.length) return 1;
+  const maxYear = Math.max(...aportes.map(a => Math.floor((a.startMonth-1)/12)+1));
+  return maxYear*12 + 1;
+}
+
+function addAporte(){
+  const valor = valorAtual;
+  if(valor <= 0) return;
+  aportes.push({num: ++aporteSeq, valor, startMonth: nextStartMonth(), carry:{}});
+  render();
+}
+function removeAporte(i){ aportes.splice(i,1); render(); }
+function moverPara(i, month){ aportes[i].startMonth = Math.max(1, month|0); render(); }
+
+function render(){
+  const tb = $('rows'), th = $('head'), tot = $('totais');
+  if(!aportes.length){
+    th.innerHTML = '';
+    tb.innerHTML = '<tr class="empty"><td>Nenhum aporte. Adicione um acima.</td></tr>';
+    tot.innerHTML = '';
+    $('rail').innerHTML = '';
+    applyGridMode(0);
+    return;
+  }
+
+  lastSim = simulate();
+  const {maxMonth, disp, rateStart, natural, carried, finalVal, total, investido} = lastSim;
+  const maxYear = maxMonth/12;
+
+  // Cabeçalho: Anos (colspan 12) + Meses (1..12)
+  let yrRow = '<tr class="cyc-row">';
+  for(let y=1;y<=maxYear;y++) yrRow += `<th class="cyc" colspan="12">${BASE_YEAR + y - 1}</th>`;
+  yrRow += '</tr>';
+
+  let moRow = '<tr class="yr-row">';
+  for(let M=1;M<=maxMonth;M++){
+    const mo = ((M-1)%12)+1;
+    const cs = ((M-1)%CYCLE_MONTHS===0)?' cycle-start':'';
+    moRow += `<th class="monthhead${cs}" data-month="${M}">${mo}</th>`;
+  }
+  moRow += '</tr>';
+  th.innerHTML = yrRow + moRow;
+
+  tb.innerHTML = aportes.map((a,i)=>{
+    let cells = '';
+    for(let M=1;M<=maxMonth;M++){
+      const cs = ((M-1)%CYCLE_MONTHS===0)?' cycle-start':'';
+      if(disp[i][M] !== undefined){
+        const isStart = (M === a.startMonth);
+        const r = rateStart[i][M];
+        const ym = ymOf(M);
+        if(isStart){
+          const taxa = r!==undefined ? pct(r) : '';
+          cells += `<td class="mark start${cs}" draggable="true" data-idx="${i}" data-month="${M}" `
+                 + `data-tip-kind="aporte" data-tip-valor="${brl(a.valor)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"><i></i></td>`;
+        }else{
+          const nat = natural[i][M], car = carried[i][M];
+          const custom = (nat !== undefined && car !== undefined && Math.round(car) !== Math.round(nat));
+          const acls = custom ? (car < nat ? ' adjminus' : ' adjplus') : '';
+          const taxa = r!==undefined ? pct(r) : '';
+          cells += `<td class="mark cycle${acls}${cs}" data-month="${M}" data-idx="${i}" `
+                 + `data-tip-kind="ciclo" data-tip-valor="${brl(nat)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"`
+                 + (custom ? ` data-tip-carry="${brl(car)}"` : '') + `><i></i></td>`;
+        }
+      }else{
+        cells += `<td class="blank${cs}" data-month="${M}"></td>`;
+      }
+    }
+    return `<tr data-row="${i}">${cells}</tr>`;
+  }).join('');
+
+  // ----- Totais (gated pelo botão Calcular) -----
+  if(loading){
+    tot.innerHTML = `<div class="loading"><div class="spinner"></div> Calculando patrimônio e renda…</div>`;
+  }else if(!resultsReady){
+    tot.innerHTML = `<div class="calc-cta">
+        <button id="calc">Calcular</button>
+        <span class="calc-sub">Veja o patrimônio total e a renda mensal</span>
+      </div>`;
+    $('calc').onclick = runCalc;
+  }else{
+    const rendaPct = rendaTaxaPara(total);
+    const renda = total * rendaPct/100;
+    const rendaTxt = rendaPct.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
+    tot.innerHTML = `
+      <div class="tot">
+        <span class="tot-top">Multiplicação de patrimônio</span>
+        <div class="tot-main">
+          <span class="totlbl">Patrimônio Total <span class="totyears">${maxYear} anos</span></span>
+          <span class="totval">${brl(total)}</span>
+        </div>
+      </div>
+      <div class="tot renda">
+        <span class="tot-top">Viver de renda</span>
+        <div class="tot-main">
+          <span class="totlbl">Renda mensal <span class="totyears">${rendaTxt}% a.m.</span></span>
+          <span class="totval renda-val">${brl(renda)}</span>
+        </div>
+      </div>`;
+  }
+
+  tb.querySelectorAll('td.mark.start').forEach(c=> c.addEventListener('click', ()=> openEditor(+c.dataset.idx, 'aporte')));
+  tb.querySelectorAll('td.mark.cycle').forEach(c=> c.addEventListener('click', ()=> openEditor(+c.dataset.idx, 'ciclo', +c.dataset.month)));
+
+  wireDrag();
+  applyGridMode(maxYear);
+  alignRail();
+}
+
+// ---- Trilha de ações (lixeiras) fora da tabela, alinhada às linhas ----
+const TRASH_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+function alignRail(){
+  const rail = $('rail');
+  if(!aportes.length){ rail.innerHTML = ''; return; }
+  const headH = $('head').getBoundingClientRect().height;
+  const rows = [...$('rows').querySelectorAll('tr')];
+  let html = `<div class="rail-head" style="height:${headH}px">Aporte</div>`;
+  rows.forEach((tr,i)=>{
+    const h = tr.getBoundingClientRect().height;
+    html += `<div class="rail-row" data-idx="${i}" draggable="true" style="height:${h}px" title="Arraste para reordenar">`
+          + `<span class="rail-grip" aria-hidden="true">⠿</span>`
+          + `<span class="rail-num">${aportes[i].num ?? (i+1)}</span>`
+          + `<button class="trash" data-del="${i}" title="Remover aporte">${TRASH_SVG}</button></div>`;
+  });
+  rail.innerHTML = html;
+  rail.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> removeAporte(+b.dataset.del));
+  wireRailDrag();
+}
+
+// ---- Reordenar aportes na vertical (arrastando a trilha) ----
+let railDrag = null;
+function moveAporteOrder(from, to){
+  if(from === to) return;
+  const [it] = aportes.splice(from, 1);
+  aportes.splice(to, 0, it);
+  render();
+}
+function wireRailDrag(){
+  const rail = $('rail');
+  rail.querySelectorAll('.rail-row').forEach(row=>{
+    row.addEventListener('dragstart', e=>{
+      railDrag = +row.dataset.idx;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'rail');
+      row.classList.add('rail-dragging');
+    });
+    row.addEventListener('dragend', ()=>{
+      rail.querySelectorAll('.rail-row').forEach(r=> r.classList.remove('rail-dragging','rail-over'));
+      railDrag = null;
+    });
+    row.addEventListener('dragover', e=>{
+      if(railDrag == null) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      row.classList.add('rail-over');
+    });
+    row.addEventListener('dragleave', ()=> row.classList.remove('rail-over'));
+    row.addEventListener('drop', e=>{
+      if(railDrag == null) return;
+      e.preventDefault();
+      row.classList.remove('rail-over');
+      moveAporteOrder(railDrag, +row.dataset.idx);
+    });
+  });
+}
+
+// ---- Arrastar aporte para um mês ----
+let dragIdx = null;
+function wireDrag(){
+  const tb = $('rows');
+  tb.querySelectorAll('td.mark.start[draggable]').forEach(cell=>{
+    cell.addEventListener('dragstart', e=>{
+      dragIdx = +cell.dataset.idx;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragIdx));
+      cell.closest('tr').classList.add('dragging');
+    });
+    cell.addEventListener('dragend', ()=>{
+      tb.querySelectorAll('.dragging').forEach(r=>r.classList.remove('dragging'));
+      clearHover();
+      dragIdx = null;
+    });
+  });
+
+  const targets = [...tb.querySelectorAll('td[data-month]'),
+                   ...$('head').querySelectorAll('th[data-month]')];
+  targets.forEach(t=>{
+    t.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; t.classList.add('drop-hover'); });
+    t.addEventListener('dragleave', ()=> t.classList.remove('drop-hover'));
+    t.addEventListener('drop', e=>{
+      e.preventDefault();
+      t.classList.remove('drop-hover');
+      if(dragIdx!=null) moverPara(dragIdx, +t.dataset.month);
+    });
+  });
+}
+function clearHover(){ document.querySelectorAll('.drop-hover').forEach(el=>el.classList.remove('drop-hover')); }
+
+// ---- Janela dos últimos 36 meses ao passar o mouse ----
+function highlightWindow(M){
+  clearWindow();
+  const start = Math.max(1, M - (CYCLE_MONTHS-1));
+  document.querySelectorAll('[data-month]').forEach(el=>{
+    const m = +el.dataset.month;
+    if(m>=start && m<=M) el.classList.add('win');
+  });
+}
+function clearWindow(){ document.querySelectorAll('.win').forEach(el=>el.classList.remove('win')); }
+
+// ---- Tooltip da célula azul (aporte) ----
+const tip = document.createElement('div');
+tip.className = 'tip';
+document.body.appendChild(tip);
+
+function moveTip(x, y){
+  const pad = 16, r = tip.getBoundingClientRect();
+  let tx = x - r.width/2, ty = y + pad;
+  tx = Math.max(8, Math.min(tx, innerWidth - r.width - 8));
+  if(ty + r.height > innerHeight - 8) ty = y - r.height - pad;
+  tip.style.left = tx + 'px';
+  tip.style.top  = ty + 'px';
+}
+function showTip(cell, x, y){
+  const d = cell.dataset;
+  if(d.tipKind === 'ciclo'){
+    tip.innerHTML =
+      `<span class="tip-cap">Fim de ciclo</span>` +
+      `<span class="tip-v">${d.tipValor}</span>` +
+      `<span class="tip-sub">Ano ${d.tipAno} · Mês ${d.tipMes}${d.tipTaxa?` · próximo ${d.tipTaxa}`:''}</span>` +
+      (d.tipCarry ? `<span class="tip-carry">Fica na operação · ${d.tipCarry}</span>` : '') +
+      `<span class="tip-hint-plain">clique para personalizar</span>`;
+  }else{
+    tip.innerHTML =
+      `<span class="tip-v">${d.tipValor}</span>` +
+      `<span class="tip-sub">Ano ${d.tipAno} · Mês ${d.tipMes}${d.tipTaxa?` · ${d.tipTaxa}`:''}</span>` +
+      `<span class="tip-hint">clique para editar · arraste para mover</span>`;
+  }
+  tip.classList.add('show');
+  moveTip(x, y);
+}
+function hideTip(){ tip.classList.remove('show'); }
+
+const scroller = document.querySelector('.table-scroll');
+scroller.addEventListener('pointerover', e=>{
+  const mark = e.target.closest('td.mark');        // azul, verde ou amarelo
+  if(mark){ showTip(mark, e.clientX, e.clientY); highlightWindow(+mark.dataset.month); }
+  else clearWindow();
+});
+scroller.addEventListener('pointermove', e=>{
+  if(tip.classList.contains('show')) moveTip(e.clientX, e.clientY);
+});
+scroller.addEventListener('pointerout', e=>{
+  const cell = e.target.closest('td.mark');
+  if(cell && !cell.contains(e.relatedTarget)) hideTip();
+});
+scroller.addEventListener('pointerleave', ()=>{ hideTip(); clearWindow(); });
+scroller.addEventListener('dragstart', ()=>{ hideTip(); clearWindow(); });
+
+// ---- Largura da grid ----
+const wrap     = document.querySelector('.table-wrap');
+const leftBtn  = document.querySelector('.scroll-edge.left');
+const rightBtn = document.querySelector('.scroll-edge.right');
+
+function applyGridMode(maxYear){
+  const table = $('head').closest('table');
+  const fits = maxYear <= 12;
+  table.classList.toggle('fits', fits);
+  wrap.classList.toggle('can-scroll', !fits);
+  updateEdges();
+}
+function updateEdges(){
+  const can = wrap.classList.contains('can-scroll');
+  const max = scroller.scrollWidth - scroller.clientWidth;
+  leftBtn.classList.toggle('on',  can && scroller.scrollLeft > 2);
+  rightBtn.classList.toggle('on', can && scroller.scrollLeft < max - 2);
+}
+function edgeHold(btn, dir){
+  let raf = null;
+  const step = ()=>{ scroller.scrollLeft += dir*12; updateEdges(); raf = requestAnimationFrame(step); };
+  btn.addEventListener('pointerenter', ()=>{ if(!raf) raf = requestAnimationFrame(step); });
+  const stop = ()=>{ if(raf){ cancelAnimationFrame(raf); raf = null; } };
+  btn.addEventListener('pointerleave', stop);
+}
+edgeHold(leftBtn, -1);
+edgeHold(rightBtn, 1);
+scroller.addEventListener('scroll', updateEdges);
+window.addEventListener('resize', ()=>{ updateEdges(); alignRail(); });
+
+// ---- Input de valor (setas de 10 mil + barra + formatação) ----
+const valorInput = $('valor'), valorRange = $('valorRange');
+let valorAtual = 50000;
+function setValorMain(v){
+  v = Math.max(0, Math.round(v));
+  valorAtual = v;
+  valorInput.value = fmtMoney(v);
+  valorRange.value = Math.min(v, +valorRange.max);
+}
+valorInput.addEventListener('input', ()=> maskMoney(valorInput, v=>{
+  valorAtual = v;
+  valorRange.value = Math.min(Math.max(0, v), +valorRange.max);
+}));
+valorInput.addEventListener('blur', ()=> setValorMain(valorAtual));
+valorInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ setValorMain(valorAtual); addAporte(); } });
+valorRange.addEventListener('input', ()=> setValorMain(+valorRange.value));
+document.querySelectorAll('.stepper .step').forEach(b=>
+  b.addEventListener('click', ()=> setValorMain(valorAtual + (+b.dataset.step))));
+
+// ---- Ciclos + total de anos ----
+function updateAnos(){ $('totalAnos').textContent = horizonte; }
+function applyCiclos(c){ horizonte = Math.max(1, c)*3; updateAnos(); render(); }
+$('ciclos').addEventListener('input', ()=> applyCiclos(parseInt($('ciclos').value)||1));
+document.querySelectorAll('.cstep').forEach(b=> b.addEventListener('click', ()=>{
+  const c = Math.max(1, (parseInt($('ciclos').value)||1) + (+b.dataset.step));
+  $('ciclos').value = c;
+  applyCiclos(c);
+}));
+
+// ---- Botões principais ----
+$('add').onclick = addAporte;
+function runCalc(){
+  loading = true; resultsReady = false; render();
+  setTimeout(()=>{ loading = false; resultsReady = true; render(); }, 1000);
+}
+
+// ---- Modal de edição ----
+function setEditVal(v){
+  v = Math.max(0, Math.round(v));
+  editing.valor = v;
+  $('mValor').value = fmtMoney(v);
+  $('mValorRange').value = Math.min(v, +$('mValorRange').max);
+}
+function setCarryVal(v){
+  v = Math.max(0, Math.round(v));
+  editing.carry = v;
+  $('mCarry').value = fmtMoney(v);
+  $('mCarryRange').value = Math.min(v, +$('mCarryRange').max);
+}
+
+function openEditor(i, mode, M){
+  mode = mode || 'aporte';
+  const a = aportes[i], ym = ymOf(a.startMonth);
+  editing = { i, mode, valor:a.valor, ano:ym.ano, mes:ym.mes, carry:Object.assign({}, a.carry||{}) };
+  const isAporte = (mode === 'aporte');
+  $('mEditTitle').textContent = isAporte ? 'Editar aporte' : 'Fim de ciclo';
+  $('mAporteNum').textContent = '#'+(a.num ?? (i+1));
+  $('mAporteFields').style.display = isAporte ? '' : 'none';
+  $('mCicloFields').style.display  = isAporte ? 'none' : '';
+  $('mRemove').textContent = isAporte ? 'Remover aporte' : 'Restaurar valor cheio';
+
+  if(isAporte){
+    $('mAno').value = editing.ano;
+    $('mMes').value = editing.mes;
+    setEditVal(editing.valor);
+  }else{
+    const k = Math.round((M - a.startMonth)/CYCLE_MONTHS);
+    const nat = (lastSim && lastSim.natural[i] && lastSim.natural[i][M] != null) ? lastSim.natural[i][M] : a.valor;
+    const cur = (a.carry && a.carry[k] != null) ? a.carry[k] : nat;
+    editing.k = k; editing.natural = nat;
+    $('mCicloNatural').textContent = brl(nat);
+    const rng = $('mCarryRange');
+    rng.max = Math.max(1000000, Math.ceil(nat*2/10000)*10000);
+    editing.carry = 0; setCarryVal(cur);
+  }
+  $('overlay').hidden = false;
+}
+function closeEditor(){ $('overlay').hidden = true; editing = null; }
+
+function saveEditor(){
+  const a = aportes[editing.i];
+  if(editing.mode === 'aporte'){
+    const start = Math.max(1, startOf(editing.ano, editing.mes));
+    a.valor = editing.valor;
+    a.startMonth = start;
+  }else{
+    a.carry = a.carry || {};
+    // se voltar ao montante cheio, remove a personalização
+    if(Math.round(editing.carry) === Math.round(editing.natural)) delete a.carry[editing.k];
+    else a.carry[editing.k] = editing.carry;
+  }
+  closeEditor();
+  render();
+}
+
+$('mAno').addEventListener('input', ()=>{ editing.ano = Math.max(1, parseInt($('mAno').value)||1); });
+$('mMes').addEventListener('input', ()=>{ editing.mes = Math.min(12, Math.max(1, parseInt($('mMes').value)||1)); });
+$('mValor').addEventListener('input', ()=> maskMoney($('mValor'), v=>{
+  editing.valor = v;
+  $('mValorRange').value = Math.min(v, +$('mValorRange').max);
+}));
+$('mValor').addEventListener('blur', ()=> setEditVal(editing.valor));
+$('mValorRange').addEventListener('input', ()=> setEditVal(+$('mValorRange').value));
+document.querySelectorAll('[data-mstep]').forEach(b=>
+  b.addEventListener('click', ()=> setEditVal((editing.valor||0) + (+b.dataset.mstep))));
+
+$('mCarry').addEventListener('input', ()=> maskMoney($('mCarry'), v=>{
+  editing.carry = v;
+  $('mCarryRange').value = Math.min(v, +$('mCarryRange').max);
+}));
+$('mCarry').addEventListener('blur', ()=> setCarryVal(editing.carry));
+$('mCarryRange').addEventListener('input', ()=> setCarryVal(+$('mCarryRange').value));
+document.querySelectorAll('[data-cstep]').forEach(b=>
+  b.addEventListener('click', ()=> setCarryVal((editing.carry||0) + (+b.dataset.cstep))));
+
+$('mClose').onclick = closeEditor;
+$('mCancel').onclick = closeEditor;
+$('mSave').onclick = saveEditor;
+$('mRemove').onclick = ()=>{
+  if(editing.mode === 'aporte'){ const i = editing.i; closeEditor(); removeAporte(i); }
+  else { const a = aportes[editing.i]; if(a.carry) delete a.carry[editing.k]; closeEditor(); render(); }
+};
+$('overlay').addEventListener('click', e=>{ if(e.target === $('overlay')) closeEditor(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('overlay').hidden) closeEditor(); });
+
+// init
+setValorMain(50000);
+updateAnos();
+render();
+</script>
+</body>
+</html>

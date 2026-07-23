@@ -1,0 +1,54 @@
+{
+  "name": "Typebot - Abandonos -> SprintHub (ARI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "a1111111-1111-4111-8111-111111111111",
+      "name": "Schedule 5min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================== CONFIG ==================\nconst TOKEN      = 'u56B-DblvPhJ4oJ9FzgI1EGYri7v0MpCAd0etWo5_n8';\nconst TYPEBOT_ID = 'eyaq8oic1wo9lll5lwn5rpst';\nconst WEBHOOK    = 'https://sprinthub-api-master.sprinthub.app/api/hook/typebot-abandonado?i=arck1pro&access_token=1cBugHE1Ou1uljegI_4UwtS3pQU2tl9MR7bKiQ16YUIuWYNMaj';\nconst WINDOW_MIN = 15;   // ultimos 15 minutos\nconst GRACE_MIN  = 5;    // criado ha mais de 5 min\n// ===========================================\n\nconst now = Date.now();\n\n// memoria interna do n8n (guarda os ids ja disparados p/ nao repetir)\nconst store = $getWorkflowStaticData('global');\nstore.enviados = store.enviados || [];\nconst jaEnviado = new Set(store.enviados);\n\n// 1) Consulta os results no Typebot\nconst resp = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `https://app.typebot.io/api/v1/typebots/${TYPEBOT_ID}/results?limit=50`,\n  headers: { Authorization: `Bearer ${TOKEN}` },\n  json: true,\n});\nconst results = resp.results || [];\n\n// helper: pega o 1o valor nao-vazio entre varios nomes de variavel possiveis\nfunction pick(v, keys) {\n  for (const k of keys) {\n    if (v[k] != null && String(v[k]).trim() !== '') return String(v[k]).trim();\n  }\n  return '';\n}\n\n// 2) Filtra os abandonos e 3) dispara o webhook um por um (sem repetir)\nconst enviados = [];\nconst erros = [];\nfor (const r of results) {\n  const ageMin = (now - new Date(r.createdAt).getTime()) / 60000;\n  if (ageMin > WINDOW_MIN) continue;   // fora dos ultimos 15 min\n  if (ageMin < GRACE_MIN)  continue;   // criado ha menos de 5 min, ainda pode estar respondendo\n  if (r.isCompleted)       continue;   // completou -> nao e abandono\n  if (jaEnviado.has(r.id)) continue;   // ja disparei esse lead -> pula (dedup)\n\n  const v = {};\n  for (const x of (r.variables || [])) v[x.name] = x.value;\n\n  const telefone = String(pick(v, ['whatsapp', 'Whatsapp', 'telefone', 'phone'])).replace(/\\D/g, '');\n  if (!telefone) continue;             // sem contato -> nao adianta criar lead\n\n  // nome pode vir com nomes de variavel diferentes; em abandono costuma faltar\n  let nome = pick(v, ['nome', 'Nome', 'firstname', 'name', 'primeiro_nome', 'first_name']);\n  if (!nome) {\n    // fallback: SprintHub exige firstname nao-vazio. Usa os ultimos 4 digitos do whatsapp.\n    nome = `Lead ${telefone.slice(-4)}`;\n  }\n\n  // dispara pro SprintHub -> params = slugs dos campos do CRM\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: WEBHOOK,\n      qs: {\n        firstname:                 nome,              // <- nome\n        whatsapp:                  telefone,          // <- whatsapp\n        profissao:                 pick(v, ['profissao']),\n        qual_o_valor_inicial_do_s: pick(v, ['valor']),        // <- valor\n        o_que_mais_importa_nos_se: pick(v, ['atencao']),      // <- atencao\n        o_que_voce_nao_gosta_nos:  pick(v, ['desconforto']),  // <- desconforto\n        voce_ja_investe_em_alguma: pick(v, ['investe']),      // <- investe   (CONFIRMAR slug)\n        por_que_voce_acredita_que: pick(v, ['sentido']),      // <- sentido   (CONFIRMAR slug)\n        projecao_para_o_investime: pick(v, ['tempo']),        // <- tempo     (CONFIRMAR slug)\n        resumo_sdr_obrigatoria:    pick(v, ['prioridade']),   // <- prioridade (CONFIRMAR slug)\n        utm_content:               pick(v, ['utm_ad']),       // <- utm_ad    (CONFIRMAR slug)\n      },\n      json: true,\n    });\n\n    // deu certo -> marca como enviado p/ nunca repetir\n    jaEnviado.add(r.id);\n    store.enviados.push(r.id);\n    const criadoSP = new Date(r.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n    enviados.push({ nome, whatsapp: telefone, criado_sp: criadoSP });\n  } catch (e) {\n    // NAO marca como enviado -> tenta de novo na proxima execucao.\n    // Tambem NAO interrompe o loop -> os demais leads continuam sendo processados.\n    const detalhe = (e && e.response && e.response.body) ? e.response.body : (e && e.message) || String(e);\n    erros.push({ id: r.id, nome, whatsapp: telefone, erro: detalhe });\n  }\n}\n\n// mantem a memoria enxuta (guarda so os ultimos 500 ids)\nif (store.enviados.length > 500) store.enviados = store.enviados.slice(-500);\n\n// ===== OUTPUT legivel =====\nconst horarioExecucaoSP = new Date(now).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });\nconst total = enviados.length;\n\nif (total === 0 && erros.length === 0) {\n  return [{ json: { execucao_sp: horarioExecucaoSP, total_enviados: 0, info: 'nenhum abandono novo neste horario' } }];\n}\n\nconst out = enviados.map((e, i) => ({\n  json: {\n    ordem: i + 1,\n    status: 'ENVIADO',\n    nome: e.nome,\n    whatsapp: e.whatsapp,\n    criado_sp: e.criado_sp,\n    total_enviados: total,\n    total_erros: erros.length,\n    execucao_sp: horarioExecucaoSP,\n  },\n}));\n\nfor (const er of erros) {\n  out.push({\n    json: {\n      status: 'ERRO',\n      nome: er.nome,\n      whatsapp: er.whatsapp,\n      erro: er.erro,\n      total_enviados: total,\n      total_erros: erros.length,\n      execucao_sp: horarioExecucaoSP,\n    },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "a2222222-2222-4222-8222-222222222222",
+      "name": "Typebot Abandonos -> SprintHub",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule 5min": {
+      "main": [
+        [
+          {
+            "node": "Typebot Abandonos -> SprintHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
