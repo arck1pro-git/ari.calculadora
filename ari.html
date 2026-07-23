@@ -207,6 +207,7 @@
   .tip .tip-v{font-size:16px;font-weight:800;letter-spacing:-.2px}
   .tip .tip-sub{font-size:11px;font-weight:600;color:#9fc0ff}
   .tip .tip-carry{font-size:11px;font-weight:700;color:#ffcf6b}
+  .tip .tip-base{font-size:11px;font-weight:600;color:rgba(255,255,255,.8)}
   .tip .tip-hint,.tip .tip-hint-plain{font-size:10px;font-weight:600;color:rgba(255,255,255,.55);margin-top:3px}
 
   tbody tr{transition:background .15s}
@@ -480,13 +481,16 @@ function simulate(){
   if(!n) return {maxMonth:0, disp:[], rateStart:[], natural:[], carried:[], finalVal:[], total:0, investido:0};
 
   const cyc = aportes.map(ciclosDe);
-  const maxYear = Math.max(3, horizonte);
+  // a grade precisa cobrir o horizonte E todos os aportes (mesmo os que começam depois)
+  const lastStart = Math.max(0, ...aportes.map(a => a.startMonth));
+  const maxYear = Math.max(3, horizonte, Math.ceil(lastStart/12));
   const maxMonth = maxYear * 12;
 
   const base = new Array(n).fill(0);
   const rate = new Array(n).fill(0);
   const disp = Array.from({length:n}, ()=> ({}));
   const rateStart = Array.from({length:n}, ()=> ({}));
+  const rateBase = Array.from({length:n}, ()=> ({}));  // total da operação que definiu a faixa
   const natural = Array.from({length:n}, ()=> ({}));   // montante cheio no fim do ciclo
   const carried = Array.from({length:n}, ()=> ({}));   // valor que ficou na operação
   const finalVal = new Array(n).fill(0);
@@ -528,6 +532,7 @@ function simulate(){
         if(e < cyc[i]*CYCLE_MONTHS){
           rate[i] = taxaPara(total);
           rateStart[i][M] = rate[i];
+          rateBase[i][M] = total;
         }
         if(e === cyc[i]*CYCLE_MONTHS) finalVal[i] = cur(i,M);
       }
@@ -537,7 +542,7 @@ function simulate(){
   const total = finalVal.reduce((s,v)=>s+v, 0);
   // capital efetivamente aportado (só os valores iniciais dos aportes)
   const investido = aportes.reduce((s,a)=> s + a.valor, 0);
-  return {maxMonth, disp, rateStart, natural, carried, finalVal, total, investido};
+  return {maxMonth, disp, rateStart, rateBase, natural, carried, finalVal, total, investido};
 }
 
 // novo aporte entra no mês 1 do próximo ano em relação ao último aporte
@@ -568,7 +573,7 @@ function render(){
   }
 
   lastSim = simulate();
-  const {maxMonth, disp, rateStart, natural, carried, finalVal, total, investido} = lastSim;
+  const {maxMonth, disp, rateStart, rateBase, natural, carried, finalVal, total, investido} = lastSim;
   const maxYear = maxMonth/12;
 
   // Cabeçalho: Anos (colspan 12) + Meses (1..12)
@@ -593,17 +598,19 @@ function render(){
         const isStart = (M === a.startMonth);
         const r = rateStart[i][M];
         const ym = ymOf(M);
+        const rb = rateBase[i][M];
+        const baseAttr = rb!==undefined ? ` data-tip-base="${brl(rb)}"` : '';
         if(isStart){
           const taxa = r!==undefined ? pct(r) : '';
           cells += `<td class="mark start${cs}" draggable="true" data-idx="${i}" data-month="${M}" `
-                 + `data-tip-kind="aporte" data-tip-valor="${brl(a.valor)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"><i></i></td>`;
+                 + `data-tip-kind="aporte" data-tip-valor="${brl(a.valor)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"${baseAttr}><i></i></td>`;
         }else{
           const nat = natural[i][M], car = carried[i][M];
           const custom = (nat !== undefined && car !== undefined && Math.round(car) !== Math.round(nat));
           const acls = custom ? (car < nat ? ' adjminus' : ' adjplus') : '';
           const taxa = r!==undefined ? pct(r) : '';
           cells += `<td class="mark cycle${acls}${cs}" data-month="${M}" data-idx="${i}" `
-                 + `data-tip-kind="ciclo" data-tip-valor="${brl(nat)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"`
+                 + `data-tip-kind="ciclo" data-tip-valor="${brl(nat)}" data-tip-ano="${ym.ano}" data-tip-mes="${ym.mes}" data-tip-taxa="${taxa}"${baseAttr}`
                  + (custom ? ` data-tip-carry="${brl(car)}"` : '') + `><i></i></td>`;
         }
       }else{
@@ -771,11 +778,13 @@ function showTip(cell, x, y){
       `<span class="tip-v">${d.tipValor}</span>` +
       `<span class="tip-sub">Ano ${d.tipAno} · Mês ${d.tipMes}${d.tipTaxa?` · próximo ${d.tipTaxa}`:''}</span>` +
       (d.tipCarry ? `<span class="tip-carry">Fica na operação · ${d.tipCarry}</span>` : '') +
+      (d.tipBase ? `<span class="tip-base">Total da operação · ${d.tipBase}</span>` : '') +
       `<span class="tip-hint-plain">clique para personalizar</span>`;
   }else{
     tip.innerHTML =
       `<span class="tip-v">${d.tipValor}</span>` +
       `<span class="tip-sub">Ano ${d.tipAno} · Mês ${d.tipMes}${d.tipTaxa?` · ${d.tipTaxa}`:''}</span>` +
+      (d.tipBase ? `<span class="tip-base">Total da operação · ${d.tipBase}</span>` : '') +
       `<span class="tip-hint">clique para editar · arraste para mover</span>`;
   }
   tip.classList.add('show');
